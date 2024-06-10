@@ -74,7 +74,7 @@ def write_to_csv(repos):
 
 def write_time_csv(inicio, fim):
     tempo = fim - inicio
-    with open('./scripts/resultados/tempo.csv', 'w', newline='') as csvfile:
+    with open('./scripts/resultados/tempoGRAPHQL.csv', 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Ferramenta', 'tempoDeExecucao'])
         writer.writerow(['GraphQl',tempo])
