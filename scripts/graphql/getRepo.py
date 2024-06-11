@@ -76,10 +76,12 @@ def write_repo_csv(repos):
 
 def write_result_csv(inicio, fim, total_bytes):
     tempo = fim - inicio
+
     file_path = './scripts/resultados/GRAPHQL.csv'
     file_exists = os.path.isfile(file_path)
 
     with open(file_path, 'a', newline='') as csvfile:
+
         writer = csv.writer(csvfile)
         
         # Se o arquivo não existia, escreva o cabeçalho
