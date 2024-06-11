@@ -3,7 +3,6 @@ import requests
 import csv
 import os
 import time
-import tqdm
 
 load_dotenv()
 
@@ -31,19 +30,22 @@ query($cursor: String) {
 
 def get_repositories(cursor=None):
     response = requests.post(url, json={'query': query, 'variables': {'cursor': cursor}}, headers=headers)
-    return response.json()
+    response_bytes = response.content
+    return response.json(), len(response_bytes)
 
 def get_all_repos():
     cursor = None
     repos = []
+    total_bytes = 0
     while True:
-        response_data = get_repositories(cursor)
-        
+        response_data, response_size = get_repositories(cursor)
+        total_bytes += response_size
+
         # Verifica se a solicitação foi bem-sucedida
         if 'errors' in response_data:
             print("Erro na solicitação:", response_data['errors'])
             break
-        
+
         # Verifica se a chave 'data' está presente na resposta
         if 'data' in response_data:
             for node in response_data['data']['search']['nodes']:
@@ -62,9 +64,9 @@ def get_all_repos():
             print("Resposta inesperada:", response_data)
             break
 
-    return repos
+    return repos, total_bytes
 
-def write_to_csv(repos):
+def write_repo_csv(repos):
     with open('./scripts/graphql/graphql.csv', 'w', newline='') as csvfile:
         fieldnames = ['nameWithOwner', 'createdAt', 'stargazerCount']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -72,19 +74,29 @@ def write_to_csv(repos):
         for repo in repos:
             writer.writerow(repo)
 
-def write_time_csv(inicio, fim):
+def write_result_csv(inicio, fim, total_bytes):
     tempo = fim - inicio
-    with open('./scripts/resultados/tempo.csv', 'w', newline='') as csvfile:
+    file_path = './scripts/resultados/GRAPHQL.csv'
+    file_exists = os.path.isfile(file_path)
+
+    with open(file_path, 'a', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Ferramenta', 'tempoDeExecucao'])
-        writer.writerow(['GraphQl',tempo])
+        
+        # Se o arquivo não existia, escreva o cabeçalho
+        if not file_exists:
+            writer.writerow(['Ferramenta', 'tempoDeExecucao', 'totalBytes'])
+        
+        writer.writerow(['GraphQl', tempo, total_bytes])
 
 def main():
-    inicio = time.time()
-    repos = get_all_repos()
-    fim = time.time()
-    write_to_csv(repos)
-    write_time_csv(inicio, fim)
+    i = 0
+    while i < 25:
+        inicio = time.time()
+        repos, total_bytes = get_all_repos()
+        fim = time.time()
+        write_repo_csv(repos)
+        write_result_csv(inicio, fim, total_bytes)
+        i+=1;
 
 if __name__ == "__main__":
     main()
