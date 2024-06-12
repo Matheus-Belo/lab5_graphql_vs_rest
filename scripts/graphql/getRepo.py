@@ -28,6 +28,24 @@ query($cursor: String) {
 }
 """
 
+query2 = """
+query($cursor: String) {
+  search(query: " language python stars:>0", type: REPOSITORY, first: 100, after: $cursor) {
+    nodes {
+      ... on Repository {
+        nameWithOwner
+        createdAt
+        stargazerCount
+      }
+    }
+    pageInfo {
+      endCursor
+      hasNextPage
+    }
+  }
+}
+"""
+
 def get_repositories(cursor=None):
     response = requests.post(url, json={'query': query, 'variables': {'cursor': cursor}}, headers=headers)
     response_bytes = response.content
