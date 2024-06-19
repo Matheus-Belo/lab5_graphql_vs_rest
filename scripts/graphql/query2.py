@@ -10,24 +10,6 @@ chave = os.getenv('key')
 url = 'https://api.github.com/graphql'
 headers = {'Authorization': 'Bearer %s' % chave}
 
-query = """
-query($cursor: String) {
-  search(query: "stars:>0", type: REPOSITORY, first: 100, after: $cursor) {
-    nodes {
-      ... on Repository {
-        nameWithOwner
-        createdAt
-        stargazerCount
-      }
-    }
-    pageInfo {
-      endCursor
-      hasNextPage
-    }
-  }
-}
-"""
-
 query2 = """
 query($cursor: String) {
   search(query: "language:java stars:>0", type: REPOSITORY, first: 100, after: $cursor) {
@@ -53,11 +35,10 @@ query($cursor: String) {
     }
   }
 }
-
 """
 
 def get_repositories(cursor=None):
-    response = requests.post(url, json={'query': query, 'variables': {'cursor': cursor}}, headers=headers)
+    response = requests.post(url, json={'query': query2, 'variables': {'cursor': cursor}}, headers=headers)
     response_bytes = response.content
     return response.json(), len(response_bytes)
 
@@ -81,6 +62,7 @@ def get_all_repos():
                     'nameWithOwner': node['nameWithOwner'],
                     'createdAt' : node['createdAt'],
                     'stargazerCount': node['stargazerCount'],
+                    'commitCount': node['defaultBranchRef']['target']['history']['totalCount'] if node['defaultBranchRef'] and node['defaultBranchRef']['target'] else None
                 }
                 repos.append(repository_info)
             pageInfo = response_data['data']['search']['pageInfo']
@@ -95,8 +77,8 @@ def get_all_repos():
     return repos, total_bytes
 
 def write_repo_csv(repos):
-    with open('./scripts/graphql/graphql.csv', 'w', newline='') as csvfile:
-        fieldnames = ['nameWithOwner', 'createdAt', 'stargazerCount']
+    with open('./scripts/graphql/GRAPHQLquery2.csv', 'w', newline='') as csvfile:
+        fieldnames = ['nameWithOwner', 'createdAt', 'stargazerCount', 'commitCount']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for repo in repos:
@@ -109,7 +91,6 @@ def write_result_csv(inicio, fim, total_bytes):
     file_exists = os.path.isfile(file_path)
 
     with open(file_path, 'a', newline='') as csvfile:
-
         writer = csv.writer(csvfile)
         
         # Se o arquivo não existia, escreva o cabeçalho
@@ -118,6 +99,7 @@ def write_result_csv(inicio, fim, total_bytes):
         
         writer.writerow(['GraphQl', tempo, total_bytes])
 
+        
 def main():
     i = 0
     while i < 5:

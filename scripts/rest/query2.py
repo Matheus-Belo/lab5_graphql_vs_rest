@@ -10,9 +10,11 @@ chave = os.getenv('key')
 url = 'https://api.github.com/search/repositories'
 headers = {'Authorization': 'Bearer %s' % chave}
 
-def get_repositories_rest(page):
+query = "language:java stars:>0"
+
+def get_repositories(page=1):
     params = {
-        'q': 'stars:>0',
+        'q': query,
         'sort': 'stars',
         'order': 'desc',
         'per_page': 100,
@@ -22,12 +24,25 @@ def get_repositories_rest(page):
     response_bytes = response.content
     return response.json(), len(response_bytes)
 
-def get_all_repos_rest():
+def get_commit_count(owner, repo):
+    commits_url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+    params = {'per_page': 1}
+    response = requests.get(commits_url, headers=headers, params=params)
+    commit_count = response.headers.get('Link')
+    if commit_count:
+        # Extract the total count from the last page URL in the Link header
+        last_page_url = commit_count.split(',')[1].split(';')[0].strip('<>')
+        last_page_params = dict(x.split('=') for x in last_page_url.split('?')[1].split('&'))
+        return int(last_page_params['page'])
+    else:
+        return len(response.json())
+
+def get_all_repos():
     page = 1
     repos = []
     total_bytes = 0
     while True:
-        response_data, response_size = get_repositories_rest(page)
+        response_data, response_size = get_repositories(page)
         total_bytes += response_size
 
         # Verifica se a solicitação foi bem-sucedida
@@ -38,13 +53,16 @@ def get_all_repos_rest():
         # Verifica se a chave 'items' está presente na resposta
         if 'items' in response_data:
             for item in response_data['items']:
+                owner, repo = item['owner']['login'], item['name']
+                commit_count = get_commit_count(owner, repo)
                 repository_info = {
-                    'nameWithOwner': item['full_name'],
+                    'nameWithOwner': f"{owner}/{repo}",
                     'createdAt' : item['created_at'],
                     'stargazerCount': item['stargazers_count'],
+                    'commitCount': commit_count
                 }
                 repos.append(repository_info)
-            if len(response_data['items']) < 100 or len(repos) >= 100:
+            if 'next' not in response_data:
                 break
             page += 1
         else:
@@ -54,8 +72,8 @@ def get_all_repos_rest():
     return repos, total_bytes
 
 def write_repo_csv(repos):
-    with open('./scripts/rest/rest.csv', 'w', newline='') as csvfile:
-        fieldnames = ['nameWithOwner', 'createdAt', 'stargazerCount']
+    with open('./scripts/rest/rest_query2.csv', 'w', newline='') as csvfile:
+        fieldnames = ['nameWithOwner', 'createdAt', 'stargazerCount', 'commitCount']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for repo in repos:
@@ -64,7 +82,7 @@ def write_repo_csv(repos):
 def write_result_csv(inicio, fim, total_bytes):
     tempo = fim - inicio
 
-    file_path = './scripts/resultados/RESTquery.csv'
+    file_path = './scripts/resultados/RESTquery2.csv'
     file_exists = os.path.isfile(file_path)
 
     with open(file_path, 'a', newline='') as csvfile:
@@ -80,11 +98,11 @@ def main():
     i = 0
     while i < 5:
         inicio = time.time()
-        repos, total_bytes = get_all_repos_rest()
+        repos, total_bytes = get_all_repos()
         fim = time.time()
         write_repo_csv(repos)
         write_result_csv(inicio, fim, total_bytes)
-        i += 1
+        i+=1;
 
 if __name__ == "__main__":
     main()
